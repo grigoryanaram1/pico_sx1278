@@ -1,0 +1,2 @@
+add_subdirectory(sx1278_send)
+add_subdirectory(sx1278_receive)
