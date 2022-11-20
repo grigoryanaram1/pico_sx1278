@@ -22,6 +22,7 @@ https://github.com/raspberrypi/pico-sdk
 
 ```sh
 cd <path_to_project>
+cp <path_to_pico_sdk>/external/pico_sdk_import.cmake .
 mkdir build
 cd build
 cmake ..
