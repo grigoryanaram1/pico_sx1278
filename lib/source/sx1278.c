@@ -56,6 +56,7 @@ static uint8_t write_register(const struct sx1278_dev_t* module, const uint8_t a
         return 1;
     }
     cs_deselect(module->cs_pin);
+    sleep_ms(1);
     read_register(module, address, &validate_buf);
     if (validate_buf != value) {
         LOG_ERR();
