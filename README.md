@@ -1,4 +1,4 @@
-# SX127x library for Raspberry Pi PICO
+# SX127x library for Raspberry Pi PICO (DRAFT VERSION)
 
 Interface library designed for RP2040 microcontroller to support SX127x LoRa modules
 
