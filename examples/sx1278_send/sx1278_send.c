@@ -1,6 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <memory.h>
+#include <pico/stdio.h>
 
 #include "sx1278.h"
 
@@ -60,6 +58,7 @@ static int network_init(struct sx1278_dev_t* module)
 
 int main()
 {
+    stdio_init_all();
     struct sx1278_dev_t* lora_module;
     const char send_buffer[] = {0x01, 0x02, 0x03, 0x04, 0x05};
     network_init(lora_module);

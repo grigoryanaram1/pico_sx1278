@@ -1,6 +1,8 @@
 #ifndef __LOGGER__H__
 #define __LOGGER__H__
 
+#include <stdio.h>
+
 #ifdef ENABLE_TRACES
     #define LOG(format, ...) printf("%s():%d: [ "format" ]\n", __FUNCTION__, __LINE__, ##__VA_ARGS__)
     #define LOGN(format, ...) printf("%s():%d: [ "format" ]", __FUNCTION__, __LINE__, ##__VA_ARGS__)
