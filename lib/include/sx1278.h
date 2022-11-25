@@ -131,7 +131,7 @@ struct sx1278_dev_t* sx1278_create_device(const uint8_t mosi_pin,
  *
  * @param[in] module initialized module struct pointer
  */
-void sx1278_update(void *);
+void sx1278_update(const struct sx1278_dev_t* module);
 
 /**
  * @brief This API to reset SX1278 module

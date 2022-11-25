@@ -27,41 +27,57 @@ static inline void cs_deselect(uint8_t cs_pin) {
     asm volatile("nop \n nop \n nop");
 }
 
-static uint8_t read_register(const struct sx1278_dev_t* module,
+static uint read_register(const struct sx1278_dev_t* module,
                              const uint8_t address,
                              uint8_t* read_value)
 {
     uint8_t obuf = address;
     uint8_t dummy_buffer = 0x00;
     cs_select(module->cs_pin);
-    if (spi_write_blocking(module->spi_dev, &obuf, 1) == 0) {
-        LOG("SPI error");
+    if (spi_write_blocking(module->spi_dev, &obuf, 1) != 1) {
+        LOG_ERR();
         return 1;
     }
-    if (spi_read_blocking(module->spi_dev, dummy_buffer, read_value, 1) == 0) {
-        LOG("SPI error");
+    if (spi_read_blocking(module->spi_dev, dummy_buffer, read_value, 1) != 1) {
+        LOG_ERR();
         return 1;
     }
     cs_deselect(module->cs_pin);
     return 0;
 }
 
-static uint8_t write_register(const struct sx1278_dev_t* module, const uint8_t address, const uint8_t value)
+static uint write_register(const struct sx1278_dev_t* module, const uint8_t address, const uint8_t value)
 {
     uint8_t obuf[2] = { WRITE_ACCESS(address), value };
     uint8_t validate_buf;
     cs_select(module->cs_pin);
-    if (spi_write_blocking(module->spi_dev, obuf, 2) == 0) {
+    if (spi_write_blocking(module->spi_dev, obuf, 2) != 2) {
         LOG("SPI error");
         return 1;
     }
     cs_deselect(module->cs_pin);
     sleep_ms(1);
-    read_register(module, address, &validate_buf);
+    if (read_register(module, address, &validate_buf) != 0) {
+        LOG_ERR();
+        return 1;
+    }
     if (validate_buf != value) {
         LOG_ERR();
         return 1;
     }
+    return 0;
+}
+
+static uint reset_register(const struct sx1278_dev_t* module, const uint8_t address)
+{
+    uint8_t obuf[2] = { WRITE_ACCESS(address), 0xFF };
+    cs_select(module->cs_pin);
+    if (spi_write_blocking(module->spi_dev, obuf, 2) != 2) {
+        LOG("SPI error");
+        return 1;
+    }
+    cs_deselect(module->cs_pin);
+    sleep_ms(1);
     return 0;
 }
 
@@ -70,11 +86,11 @@ static uint write_to_fifo(const struct sx1278_dev_t* module, const uint8_t* data
     uint8_t obuf = WRITE_ACCESS(REG_FIFO);
     cs_select(module->cs_pin);
     if (spi_write_blocking(module->spi_dev, &obuf, 1) == 0) {
-        LOG("SPI error");
+        LOG_ERR();
         return 1;
     }
     if (spi_write_blocking(module->spi_dev, data, data_len) == 0) {
-        LOG("SPI error");
+        LOG_ERR();
         return 1;
     }
     cs_deselect(module->cs_pin);
@@ -87,11 +103,11 @@ static uint read_from_fifo(const struct sx1278_dev_t* module, uint8_t* data, uin
     uint8_t dummy_buffer = 0x00;
     cs_select(module->cs_pin);
     if (spi_write_blocking(module->spi_dev, &obuf, 1) == 0) {
-        LOG("SPI error");
+        LOG_ERR();
         return 1;
     }
     if (spi_read_blocking(module->spi_dev, dummy_buffer, data, data_len) == 0) {
-        LOG("SPI error");
+        LOG_ERR();
         return 1;
     }
     cs_deselect(module->cs_pin);
@@ -169,44 +185,41 @@ struct sx1278_dev_t* sx1278_create_device(const uint8_t mosi_pin,
     return module;
 }
 
-void sx1278_update(void* module_p)
+void sx1278_update(const struct sx1278_dev_t* module)
 {
-    while (1) {
-        struct sx1278_dev_t* module = (struct sx1278_dev_t*)module_p;
-        uint8_t irq_reg_value;
-        read_register(module, REG_IRQ_FLAGS, &irq_reg_value);
-        if (irq_reg_value != 0x00) {
-            write_register(module, REG_IRQ_FLAGS, 0xFF);
-            LOG("SX1278 update");
+    uint8_t irq_reg_value;
+    read_register(module, REG_IRQ_FLAGS, &irq_reg_value);
+    if (irq_reg_value != 0x00) {
+        reset_register(module, REG_IRQ_FLAGS);
+        LOG("SX1278 update");
+    }
+    if (irq_reg_value & 0b10000000) {
+        LOG("RxTimeout");
+    }
+    if (irq_reg_value & 0b01000000) {
+        LOG("RxDone");
+        receive_package(module);
+    }
+    if (irq_reg_value & 0b00100000) {
+        LOG("PayloadCrcError");
+    }
+    if (irq_reg_value & 0b00010000) {
+        LOG("ValidHeader");
+    }
+    if (irq_reg_value & 0b00001000) {
+        LOG("TxDone");
+        if (module->tx_callback_f != NULL) {
+            module->tx_callback_f(DONE);
         }
-        if (irq_reg_value & 0b10000000) {
-            LOG("RxTimeout");
-        }
-        if (irq_reg_value & 0b01000000) {
-            LOG("RxDone");
-            receive_package(module);
-        }
-        if (irq_reg_value & 0b00100000) {
-            LOG("PayloadCrcError");
-        }
-        if (irq_reg_value & 0b00010000) {
-            LOG("ValidHeader");
-        }
-        if (irq_reg_value & 0b00001000) {
-            LOG("TxDone");
-            if (module->tx_callback_f != NULL) {
-                module->tx_callback_f(DONE);
-            }
-        }
-        if (irq_reg_value & 0b00000100) {
-            LOG("CadDone");
-        }
-        if (irq_reg_value & 0b00000010) {
-            LOG("FhssChangeChannel");
-        }
-        if (irq_reg_value & 0b00000001) {
-            LOG("CadDetected");
-        }
+    }
+    if (irq_reg_value & 0b00000100) {
+        LOG("CadDone");
+    }
+    if (irq_reg_value & 0b00000010) {
+        LOG("FhssChangeChannel");
+    }
+    if (irq_reg_value & 0b00000001) {
+        LOG("CadDetected");
     }
 }
 
@@ -229,7 +242,6 @@ uint sx1278_init(const struct sx1278_dev_t* module)
     write_register(module, REG_FIFO_RX_BASE_ADDR, 0x00);
     write_register(module, REG_FIFO_TX_BASE_ADDR, 0x00);
     write_register(module, REG_PA_CONFIG, 0xCF);
-    write_register(module, REG_LNA, 0x23);
     if (rc != 0) {
         CRITICAL("SX1278 initialization fail");
         return 1;
