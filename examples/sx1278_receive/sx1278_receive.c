@@ -34,33 +34,33 @@ static void transmit_callback(uint error_code)
     LOG("Return code: [ %d ]", error_code);
 }
 
-static int network_init(struct sx1278_dev_t* module)
+static int network_init(struct sx1278_dev_t** module)
 {
     LOG("Start network initialization");
-    module = sx1278_create_device(SX1278_MOSI_PIN,
+    (*module) = sx1278_create_device(SX1278_MOSI_PIN,
                                          SX1278_MISO_PIN,
                                          SX1278_CS_PIN,
                                          SX1278_SCK_PIN,
                                          SX1278_RESET_PIN,
                                          SX1278_DI0_PIN,
                                          SX1278_SPI_DEV);
-    sx1278_init(module);
-    sx1278_set_frequency(module, NETWORK_DEFAULT_FREQUENCY);
-    sx1278_set_header_mode(module, NETWORK_DEFAULT_HEADER_MODE);
-    sx1278_set_bandwidth(module, NETWORK_DEFAULT_BANDWIDTH);
-    sx1278_set_coding_rate(module, NETWORK_DEFAULT_CODING_RATE);
-    sx1278_set_spreading_factor(module, NETWORK_DEFAULT_SPREADING_FACTOR);
-    sx1278_set_ocp_threshold(module, NETWORK_DEFAULT_OCP);
-    sx1278_register_rx_callback(module, receive_callback);
-    sx1278_register_tx_callback(module, transmit_callback);
-    sx1278_set_mode(module, NETWORK_DEFAULT_MODE);
+    sx1278_init(*module);
+    sx1278_set_frequency((*module), NETWORK_DEFAULT_FREQUENCY);
+    sx1278_set_header_mode((*module), NETWORK_DEFAULT_HEADER_MODE);
+    sx1278_set_bandwidth((*module), NETWORK_DEFAULT_BANDWIDTH);
+    sx1278_set_coding_rate((*module), NETWORK_DEFAULT_CODING_RATE);
+    sx1278_set_spreading_factor((*module), NETWORK_DEFAULT_SPREADING_FACTOR);
+    sx1278_set_ocp_threshold((*module), NETWORK_DEFAULT_OCP);
+    sx1278_register_rx_callback((*module), receive_callback);
+    sx1278_register_tx_callback((*module), transmit_callback);
+    sx1278_set_mode((*module), NETWORK_DEFAULT_MODE);
 }
 
 int main()
 {
     stdio_init_all();
     struct sx1278_dev_t* lora_module;
-    network_init(lora_module);
+    network_init(&lora_module);
     while (1) {
         sx1278_update(lora_module);
         sleep_us(100);
