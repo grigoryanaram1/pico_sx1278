@@ -151,9 +151,7 @@ static uint receive_package(const struct sx1278_dev_t* module)
     read_register(module, REG_PKT_RSSI_VALUE, &rx_rssi);
     read_register(module, REG_PKT_SNR_VALUE, &rx_snr);
     read_from_fifo(module, rx_buffer, rx_bytes_count);
-#ifdef ENABLE_TRACES
     dump_buffer(rx_buffer, rx_bytes_count);
-#endif
     if (module->rx_callback_f) {
         module->rx_callback_f(rx_buffer, rx_bytes_count, rx_rssi, rx_snr);
     }
