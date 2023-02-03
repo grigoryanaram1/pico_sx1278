@@ -348,4 +348,15 @@ uint sx1278_transmit(const struct sx1278_dev_t* module, const uint8_t* data, con
  * @return uint 0 if current RSSI got successfuly, else` 1
  */
 uint sx1278_get_random_number(const struct sx1278_dev_t* module, uint8_t* random_num);
+
+/**
+ * @brief This API to get register value
+ *  Mostly for unittesting
+ *
+ * @param[in] module initialized module struct pointer
+ * @param[in] address register address
+ * @param[out] reg_value register value
+ * @return uint 0 if register value got successfuly, else` 1
+ */
+uint sx1278_get_register_value(const struct sx1278_dev_t* module, uint8_t address, uint8_t* reg_value);
 #endif /* __SX1278__H__ */

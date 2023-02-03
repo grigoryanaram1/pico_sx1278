@@ -47,5 +47,6 @@ static void dump_buffer(uint8_t* data, uint8_t data_len)
 
 #define CRITICAL(format, ...) printf("{ CRITICAL }%s():%d: [ "format" ]\n", __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define LOG_ERR() printf("%s():%d: ERROR\n", __FUNCTION__, __LINE__)
+#define CHECK_RET_VALUE(foo, val) if ((foo) != (val)) { LOG_ERR(); }
 
 #endif /* __LOGGER__H__ */

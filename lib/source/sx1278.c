@@ -446,11 +446,6 @@ uint sx1278_get_current_rssi(const struct sx1278_dev_t* module, int16_t* rssi)
     }
 }
 
-uint sx1278_get_random_number(const struct sx1278_dev_t* module, uint8_t* random_num)
-{
-    return read_register(module, REG_RSSI_VALUE, random_num);
-}
-
 uint sx1278_transmit(const struct sx1278_dev_t* module, const uint8_t* data, const uint data_len)
 {
     uint8_t fifo_tx_base_addr;
@@ -459,4 +454,15 @@ uint sx1278_transmit(const struct sx1278_dev_t* module, const uint8_t* data, con
     write_to_fifo(module, data, data_len);
     write_register(module, REG_PAYLOAD_LENGTH, data_len);
     sx1278_set_mode(module, TX_MODE);
+}
+
+
+uint sx1278_get_random_number(const struct sx1278_dev_t* module, uint8_t* random_num)
+{
+    return read_register(module, REG_RSSI_VALUE, random_num);
+}
+
+uint sx1278_get_register_value(const struct sx1278_dev_t* module, uint8_t address, uint8_t* reg_value)
+{
+    return read_register(module, address, reg_value);
 }
