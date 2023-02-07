@@ -338,7 +338,7 @@ uint sx1278_set_ocp_threshold(const struct sx1278_dev_t* module, const uint8_t t
         reg_value |= (((threshold - 45) / 5) & 0b00001111);
     } else {
         reg_value |= 0b00100000;
-        reg_value |= (((threshold + 30) / 10) & 0b00001111);
+        reg_value |= (((threshold + 30) / 10) & 0b00011111);
     }
     if (write_register(module, REG_OCP, reg_value) != 0) {
         LOG_ERR();
