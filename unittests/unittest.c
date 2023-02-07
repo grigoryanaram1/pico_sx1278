@@ -8,6 +8,8 @@
 
 #define UNITTEST_CHECK(val, golden, conc) if ((val) != (golden)) { LOG("[ --- FAIL --- ]"); conc++;} else { LOG(" --- PASS --- "); }
 
+#define TEST_DELAY 50
+
 #define SX1278_SCK_PIN    18
 #define SX1278_MISO_PIN   16
 #define SX1278_MOSI_PIN   19
@@ -43,31 +45,31 @@ static uint unittest_op_mode(void)
     sx1278_set_mode(lora_module, SLEEP_MODE);
     sx1278_get_register_value(lora_module, REG_OP_MODE, &reg_value);
     UNITTEST_CHECK(reg_value, 128, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_mode(lora_module, STDBY_MODE);
     sx1278_get_register_value(lora_module, REG_OP_MODE, &reg_value);
     UNITTEST_CHECK(reg_value, 129, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_mode(lora_module, FSTX_MODE);
     sx1278_get_register_value(lora_module, REG_OP_MODE, &reg_value);
     UNITTEST_CHECK(reg_value, 130, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_mode(lora_module, TX_MODE);
     sx1278_get_register_value(lora_module, REG_OP_MODE, &reg_value);
     UNITTEST_CHECK(reg_value, 131, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_mode(lora_module, FSRX_MODE);
     sx1278_get_register_value(lora_module, REG_OP_MODE, &reg_value);
     UNITTEST_CHECK(reg_value, 132, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_mode(lora_module, RX_CONTINUOUS_MODE);
     sx1278_get_register_value(lora_module, REG_OP_MODE, &reg_value);
     UNITTEST_CHECK(reg_value, 133, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_mode(lora_module, RX_SINGLE_MODE);
     sx1278_get_register_value(lora_module, REG_OP_MODE, &reg_value);
     UNITTEST_CHECK(reg_value, 134, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_mode(lora_module, CAD_MODE);
     sx1278_get_register_value(lora_module, REG_OP_MODE, &reg_value);
     UNITTEST_CHECK(reg_value, 135, conclusion);
@@ -91,7 +93,7 @@ static uint unittest_frequency(void)
     UNITTEST_CHECK(reg_value, 0x80, conclusion);
     sx1278_get_register_value(lora_module, REG_FR_LSB, &reg_value);
     UNITTEST_CHECK(reg_value, 0x00, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_frequency(lora_module, 430E6);
     sx1278_get_register_value(lora_module, REG_FR_MSB, &reg_value);
     UNITTEST_CHECK(reg_value, 0x6b, conclusion);
@@ -99,7 +101,7 @@ static uint unittest_frequency(void)
     UNITTEST_CHECK(reg_value, 0x80, conclusion);
     sx1278_get_register_value(lora_module, REG_FR_LSB, &reg_value);
     UNITTEST_CHECK(reg_value, 0x00, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_frequency(lora_module, 410E6);
     sx1278_get_register_value(lora_module, REG_FR_MSB, &reg_value);
     UNITTEST_CHECK(reg_value, 0x66, conclusion);
@@ -107,7 +109,7 @@ static uint unittest_frequency(void)
     UNITTEST_CHECK(reg_value, 0x80, conclusion);
     sx1278_get_register_value(lora_module, REG_FR_LSB, &reg_value);
     UNITTEST_CHECK(reg_value, 0x00, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     sx1278_set_frequency(lora_module, 480E6);
     sx1278_get_register_value(lora_module, REG_FR_MSB, &reg_value);
     UNITTEST_CHECK(reg_value, 0x83, conclusion);
@@ -115,7 +117,7 @@ static uint unittest_frequency(void)
     UNITTEST_CHECK(reg_value, 0x40, conclusion);
     sx1278_get_register_value(lora_module, REG_FR_LSB, &reg_value);
     UNITTEST_CHECK(reg_value, 0x00, conclusion);
-    sleep_ms(50);
+    sleep_ms(TEST_DELAY);
     if (conclusion != 0) {
         LOG(" --- FREQUENCY TEST FAIL --- ");
         return 1;
@@ -124,10 +126,39 @@ static uint unittest_frequency(void)
     return 0;
 }
 
+static uint unittest_ocp_threshold(void)
+{
+    uint8_t reg_value;
+    uint8_t conclusion = 0;
+    LOG(" --- OCP THRESHOLD TEST START --- ");
+    sx1278_set_ocp_threshold(lora_module, OCP_DISABLE);
+    sx1278_get_register_value(lora_module, REG_OCP, &reg_value);
+    UNITTEST_CHECK(reg_value, 0, conclusion);
+    sleep_ms(TEST_DELAY);
+    sx1278_set_ocp_threshold(lora_module, 50);
+    sx1278_get_register_value(lora_module, REG_OCP, &reg_value);
+    UNITTEST_CHECK(reg_value, 33, conclusion);
+    sleep_ms(TEST_DELAY);
+    sx1278_set_ocp_threshold(lora_module, 140);
+    sx1278_get_register_value(lora_module, REG_OCP, &reg_value);
+    UNITTEST_CHECK(reg_value, 49, conclusion);
+    sleep_ms(TEST_DELAY);
+    sx1278_set_ocp_threshold(lora_module, 240);
+    sx1278_get_register_value(lora_module, REG_OCP, &reg_value);
+    UNITTEST_CHECK(reg_value, 59, conclusion);
+    if (conclusion != 0) {
+        LOG(" --- OCP THRESHOLD TEST FAIL --- ");
+        return 1;
+    }
+    LOG(" --- OCP THRESHOLD TEST PASS --- ");
+    return 0;
+}
+
 static void run_test(void)
 {
     (void)unittest_op_mode();
     (void)unittest_frequency();
+    (void)unittest_ocp_threshold();
 }
 
 int main()
