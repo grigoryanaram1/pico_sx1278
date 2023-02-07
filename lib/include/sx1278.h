@@ -351,7 +351,7 @@ uint sx1278_get_random_number(const struct sx1278_dev_t* module, uint8_t* random
 
 /**
  * @brief This API to get register value
- *  Mostly for unittesting
+ *  Mostly for unit testing
  *
  * @param[in] module initialized module struct pointer
  * @param[in] address register address
