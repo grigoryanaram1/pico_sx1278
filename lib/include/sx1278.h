@@ -15,8 +15,8 @@
 #define RX_SINGLE_MODE      6
 #define CAD_MODE            7
 
-#define FREQUENCY_MAX_VALUE 480
-#define FREQUENCY_MIN_VALUE 400
+#define FREQUENCY_MAX_VALUE 480E6
+#define FREQUENCY_MIN_VALUE 400E6
 
 #define PA_RAMP_MAX_VALUE 15
 #define PA_RAMP_MIN_VALUE 0
@@ -168,9 +168,10 @@ uint sx1278_init(const struct sx1278_dev_t* module);
  * @brief This API to get SX1278 module version
  *
  * @param[in] module initialized module struct pointer
+ * @param[out] version the version of module
  * @return uint module version
  */
-uint sx1278_get_version(const struct sx1278_dev_t* module);
+uint sx1278_get_version(const struct sx1278_dev_t* module, uint8_t* version);
 
 /**
  * @brief This API to set SX1278 module mode

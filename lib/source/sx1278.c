@@ -52,20 +52,20 @@ static uint write_register(const struct sx1278_dev_t* module, const uint8_t addr
     uint8_t validate_buf;
     cs_select(module->cs_pin);
     if (spi_write_blocking(module->spi_dev, obuf, 2) != 2) {
-        LOG("SPI error");
-        return 1;
+        LOG_ERR();
+        return FAIL;
     }
     cs_deselect(module->cs_pin);
-    sleep_ms(1);
+    sleep_ms(1); // TODO
     if (read_register(module, address, &validate_buf) != 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
     if (validate_buf != value) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 static uint reset_register(const struct sx1278_dev_t* module, const uint8_t address)
@@ -73,12 +73,12 @@ static uint reset_register(const struct sx1278_dev_t* module, const uint8_t addr
     uint8_t obuf[2] = { WRITE_ACCESS(address), 0xFF };
     cs_select(module->cs_pin);
     if (spi_write_blocking(module->spi_dev, obuf, 2) != 2) {
-        LOG("SPI error");
-        return 1;
+        LOG_ERR();
+        return FAIL;
     }
     cs_deselect(module->cs_pin);
-    sleep_ms(1);
-    return 0;
+    sleep_ms(1); // TODO
+    return DONE;
 }
 
 static uint write_to_fifo(const struct sx1278_dev_t* module, const uint8_t* data, const uint8_t data_len)
@@ -87,14 +87,14 @@ static uint write_to_fifo(const struct sx1278_dev_t* module, const uint8_t* data
     cs_select(module->cs_pin);
     if (spi_write_blocking(module->spi_dev, &obuf, 1) == 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
     if (spi_write_blocking(module->spi_dev, data, data_len) == 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
     cs_deselect(module->cs_pin);
-    return 0;
+    return DONE;
 }
 
 static uint read_from_fifo(const struct sx1278_dev_t* module, uint8_t* data, uint8_t data_len)
@@ -104,14 +104,14 @@ static uint read_from_fifo(const struct sx1278_dev_t* module, uint8_t* data, uin
     cs_select(module->cs_pin);
     if (spi_write_blocking(module->spi_dev, &obuf, 1) == 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
     if (spi_read_blocking(module->spi_dev, dummy_buffer, data, data_len) == 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
     cs_deselect(module->cs_pin);
-    return 0;
+    return DONE;
 }
 
 static uint sx1278_enable_lora_mode(const struct sx1278_dev_t* module)
@@ -119,11 +119,11 @@ static uint sx1278_enable_lora_mode(const struct sx1278_dev_t* module)
     uint8_t reg_value;
     read_register(module, REG_OP_MODE, &reg_value);
     reg_value |= 0b10000000;
-    if (write_register(module, REG_OP_MODE, reg_value) != 0) {
+    if (write_register(module, REG_OP_MODE, reg_value) != DONE) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 static uint sx1278_enable_hf_reg_mode(const struct sx1278_dev_t* module)
@@ -131,11 +131,11 @@ static uint sx1278_enable_hf_reg_mode(const struct sx1278_dev_t* module)
     uint8_t reg_value;
     read_register(module, REG_OP_MODE, &reg_value);
     reg_value &= ~(0b0001000);
-    if (write_register(module, REG_OP_MODE, reg_value) != 0) {
+    if (write_register(module, REG_OP_MODE, reg_value) != DONE) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 static uint receive_package(const struct sx1278_dev_t* module)
@@ -225,11 +225,16 @@ void sx1278_update(const struct sx1278_dev_t* module)
 
 uint sx1278_init(const struct sx1278_dev_t* module)
 {
+    int module_version;
     sleep_ms(10);                      /* Need for sx1278 ready state */
     sx1278_reset(module);
-    if (sx1278_get_version(module) != VERSION_REG_VALUE) {
-        CRITICAL("SX1278 module not defined");
+    if (sx1278_get_version(module, &module_version) != DONE) {
+        LOG_ERR();
         return 1;
+    }
+    if (module_version != VERSION_REG_VALUE) {
+        LOG("ERROR: module not connected");
+        return FAIL;
     }
     if (sx1278_set_mode(module, SLEEP_MODE) != DONE) {
         LOG_ERR();
@@ -276,71 +281,78 @@ void sx1278_register_rx_callback(struct sx1278_dev_t* module, rx_callback callba
     module->rx_callback_f = callback;
 }
 
-uint sx1278_get_version(const struct sx1278_dev_t* module)
+uint sx1278_get_version(const struct sx1278_dev_t* module, uint8_t* version)
 {
-    uint8_t version;
-    read_register(module, REG_VERSION, &version);
-    return version;
+    if (read_register(module, REG_VERSION, version) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    return DONE;
 }
 
 uint sx1278_set_mode(const struct sx1278_dev_t* module, uint8_t mode)
 {
-    uint8_t rc;
     uint8_t reg_value;
     uint8_t fifo_rx_base_addr;
-    rc = 0;
-    read_register(module, REG_OP_MODE, &reg_value);
+    if (read_register(module, REG_OP_MODE, &reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
     reg_value &= 0b11111000;
     reg_value |= mode;
-    if (mode == RX_CONTINUOUS_MODE ||
-        mode == RX_SINGLE_MODE) {
-        rc += read_register(module, REG_FIFO_RX_BASE_ADDR, &fifo_rx_base_addr);
-        rc += write_register(module, REG_FIFO_ADDR_PTR, fifo_rx_base_addr);
-        LOG("Set RX mode");
+    if (mode == RX_CONTINUOUS_MODE || mode == RX_SINGLE_MODE) {
+        if (read_register(module, REG_FIFO_RX_BASE_ADDR, &fifo_rx_base_addr) != DONE) {
+            LOG_ERR();
+            return FAIL;
+        }
+        if (write_register(module, REG_FIFO_ADDR_PTR, fifo_rx_base_addr) != DONE) {
+            LOG_ERR();
+            return FAIL;
+        }
     }
-    rc += write_register(module, REG_OP_MODE, reg_value);
-    if (rc != 0) {
+    if (write_register(module, REG_OP_MODE, reg_value) != DONE) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 uint sx1278_set_frequency(const struct sx1278_dev_t* module, const uint32_t freq)
 {
-    uint64_t mul = (1 << 19);
-    uint64_t f_xosc = 32000000;
+    const uint64_t mul = (1 << 19);
+    const uint64_t f_xosc = 32000000;
     uint64_t frf  = (freq * mul) / f_xosc;
-    uint8_t msb_reg = 0;
-    uint8_t mid_reg = 0;
-    uint8_t lsb_reg = 0;
-    uint8_t rc = 0;
-    if ((freq > FREQUENCY_MAX_VALUE * 1000 * 1000) ||
-        (freq < FREQUENCY_MIN_VALUE * 1000 * 1000)) {
-        LOG("Invalid param");
-        return 1;
+    uint8_t msb_reg;
+    uint8_t mid_reg;
+    uint8_t lsb_reg;
+    if (freq > FREQUENCY_MAX_VALUE || freq < FREQUENCY_MIN_VALUE) {
+        LOG_ERR();
+        return FAIL;
     }
     lsb_reg = frf;
     mid_reg = (frf >> 8);
     msb_reg = (frf >> 16);
-    rc += write_register(module, REG_FR_LSB, lsb_reg);
-    rc += write_register(module, REG_FR_MID, mid_reg);
-    rc += write_register(module, REG_FR_MSB, msb_reg);
-    if (rc != 0) {
+    if (write_register(module, REG_FR_LSB, lsb_reg) != DONE) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    if (write_register(module, REG_FR_MID, mid_reg) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    if (write_register(module, REG_FR_MSB, msb_reg) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    return DONE;
 }
 
 uint sx1278_set_ocp_threshold(const struct sx1278_dev_t* module, const uint8_t threshold)
 {
     uint8_t reg_value = 0x00;
-    if ((threshold > OCP_MAX_VALUE ||
-         threshold < OCP_MIN_VALUE) &&
-         threshold != 0) {
-        LOG("Invalid param");
-        return 1;
+    if ((threshold > OCP_MAX_VALUE || threshold < OCP_MIN_VALUE) && threshold != 0) {
+        LOG_ERR();
+        return FAIL;
     }
     if (threshold == 0) {
         reg_value &= 0b11011111;
@@ -353,28 +365,34 @@ uint sx1278_set_ocp_threshold(const struct sx1278_dev_t* module, const uint8_t t
     }
     if (write_register(module, REG_OCP, reg_value) != 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 uint sx1278_set_lna_gain(const struct sx1278_dev_t* module, const uint8_t gain)
 {
     uint8_t reg_value;
-    read_register(module, REG_LNA, &reg_value);
+    if (read_register(module, REG_LNA, &reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
     reg_value &= 0b00011111;
     reg_value |= (gain << 5);
-    if (write_register(module, REG_LNA, reg_value) != 0) {
+    if (write_register(module, REG_LNA, reg_value) != DONE) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 uint sx1278_set_lna_boost(const struct sx1278_dev_t* module, const uint8_t boost)
 {
     uint8_t reg_value;
-    read_register(module, REG_LNA, &reg_value);
+    if (read_register(module, REG_LNA, &reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
     if (boost == LNA_BOOST_DEFAULT) {
         reg_value &= 0b11111100;
     } else if (boost == LNA_BOOST_ON) {
@@ -382,43 +400,50 @@ uint sx1278_set_lna_boost(const struct sx1278_dev_t* module, const uint8_t boost
     }
     if (write_register(module, REG_LNA, reg_value) != 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 uint sx1278_set_bandwidth(const struct sx1278_dev_t* module, const uint bandwidth)
 {
     uint8_t reg_value;
-    read_register(module, REG_MODEM_CONFIG_1, &reg_value);
+    if (read_register(module, REG_MODEM_CONFIG_1, &reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
     reg_value &= 0b00001111;
     reg_value |= (bandwidth << 4);
-    LOG("Bandwidth reg value : [ 0x%02x ]", reg_value);
     if (write_register(module, REG_MODEM_CONFIG_1, reg_value) != 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 uint sx1278_set_coding_rate(const struct sx1278_dev_t* module, const uint8_t rate)
 {
     uint8_t reg_value;
-    read_register(module, REG_MODEM_CONFIG_1, &reg_value);
+    if (read_register(module, REG_MODEM_CONFIG_1, &reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
     reg_value &= 0b11110001;
     reg_value |= (rate << 1);
-    LOG("Coding rate reg value : [ 0x%02x ]", reg_value);
     if (write_register(module, REG_MODEM_CONFIG_1, reg_value) != 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 uint sx1278_set_header_mode(const struct sx1278_dev_t* module, const uint8_t mode)
 {
     uint8_t reg_value;
-    read_register(module, REG_MODEM_CONFIG_1, &reg_value);
+    if (read_register(module, REG_MODEM_CONFIG_1, &reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
     if (mode == IMPLICITE_HEADER_MODE) {
         reg_value |= 0b00000001;
     } else if (mode == EXPLICITE_HEADER_MODE) {
@@ -426,35 +451,45 @@ uint sx1278_set_header_mode(const struct sx1278_dev_t* module, const uint8_t mod
     }
     if (write_register(module, REG_MODEM_CONFIG_1, reg_value) != 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 uint sx1278_set_spreading_factor(const struct sx1278_dev_t* module, const uint8_t sp_factor)
 {
     uint8_t reg_value;
-    read_register(module, REG_MODEM_CONFIG_2, &reg_value);
+    if (read_register(module, REG_MODEM_CONFIG_2, &reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
     reg_value &= 0b00001111;
     reg_value |= (sp_factor << 4);
     if (write_register(module, REG_MODEM_CONFIG_2, reg_value) != 0) {
         LOG_ERR();
-        return 1;
+        return FAIL;
     }
-    return 0;
+    return DONE;
 }
 
 uint sx1278_get_current_rssi(const struct sx1278_dev_t* module, int16_t* rssi)
 {
     uint8_t rssi_reg_value;
     uint8_t op_mode_reg_value;
-    read_register(module, REG_RSSI_VALUE, &rssi_reg_value);
-    read_register(module, REG_OP_MODE, &op_mode_reg_value);
+    if (read_register(module, REG_RSSI_VALUE, &rssi_reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    if (read_register(module, REG_OP_MODE, &op_mode_reg_value) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
     if (op_mode_reg_value & 0b00001000) { // HF port used
         *rssi = (-157 + (int16_t)rssi_reg_value);
     } else {
         *rssi = (-164 + (int16_t)rssi_reg_value);
     }
+    return DONE;
 }
 
 uint sx1278_transmit(const struct sx1278_dev_t* module, const uint8_t* data, const uint data_len)
