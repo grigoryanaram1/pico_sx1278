@@ -225,7 +225,7 @@ void sx1278_update(const struct sx1278_dev_t* module)
 
 uint sx1278_init(const struct sx1278_dev_t* module)
 {
-    int module_version;
+    uint8_t module_version;
     sleep_ms(10);                      /* Need for sx1278 ready state */
     sx1278_reset(module);
     if (sx1278_get_version(module, &module_version) != DONE) {
