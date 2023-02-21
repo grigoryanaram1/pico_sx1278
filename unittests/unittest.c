@@ -166,7 +166,7 @@ int main()
     stdio_init_all();
     if (network_init() != 0) {
         LOG("[FAIL] Unittest failed");
-        //goto end;
+        goto end;
     }
     run_test();
 end:
