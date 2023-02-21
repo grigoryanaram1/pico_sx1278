@@ -9,7 +9,7 @@
 #include "sx1278_registers.h"
 #include "sx1278.h"
 
-#define ENABLE_TRACES
+//#define ENABLE_TRACES
 #include "logger.h"
 
 #define SX1278_SPI_SPEED  10 /* 10 MHz */
@@ -172,7 +172,9 @@ struct sx1278_dev_t* sx1278_create_device(const uint8_t mosi_pin,
     gpio_set_function(miso_pin, GPIO_FUNC_SPI);
     gpio_set_function(sck_pin, GPIO_FUNC_SPI);
     gpio_init(cs_pin);
+    gpio_init(reset_pin);
     gpio_set_dir(cs_pin, GPIO_OUT);
+    gpio_set_dir(reset_pin, GPIO_OUT);
     gpio_put(cs_pin, 1);
     module->spi_dev = spi_dev;
     module->reset_pin = reset_pin;
@@ -223,28 +225,37 @@ void sx1278_update(const struct sx1278_dev_t* module)
 
 uint sx1278_init(const struct sx1278_dev_t* module)
 {
-    uint8_t rc;
-    uint8_t module_version;
     sleep_ms(10);                      /* Need for sx1278 ready state */
-    gpio_init(module->reset_pin);
-    gpio_set_dir(module->reset_pin, GPIO_OUT);
     sx1278_reset(module);
-    module_version = sx1278_get_version(module);
-    if (module_version != VERSION_REG_VALUE) {
+    if (sx1278_get_version(module) != VERSION_REG_VALUE) {
         CRITICAL("SX1278 module not defined");
         return 1;
     }
-    rc += sx1278_set_mode(module, SLEEP_MODE);
-    rc += sx1278_enable_lora_mode(module);
-    rc += sx1278_enable_hf_reg_mode(module);
-    write_register(module, REG_FIFO_RX_BASE_ADDR, 0x00);
-    write_register(module, REG_FIFO_TX_BASE_ADDR, 0x00);
-    write_register(module, REG_PA_CONFIG, 0xCF);
-    if (rc != 0) {
-        CRITICAL("SX1278 initialization fail");
-        return 1;
+    if (sx1278_set_mode(module, SLEEP_MODE) != DONE) {
+        LOG_ERR();
+        return FAIL;
     }
-    return 1;
+    if (sx1278_enable_lora_mode(module) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    if (sx1278_enable_hf_reg_mode(module) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    if (write_register(module, REG_FIFO_RX_BASE_ADDR, 0x00) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    if (write_register(module, REG_FIFO_TX_BASE_ADDR, 0x00) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    if (write_register(module, REG_PA_CONFIG, 0xCF) != DONE) {
+        LOG_ERR();
+        return FAIL;
+    }
+    return DONE;
 }
 
 void sx1278_reset(const struct sx1278_dev_t* module)
